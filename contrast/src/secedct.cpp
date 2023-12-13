@@ -357,54 +357,7 @@ cv::Mat colorRestoration(cv::Mat& hsv, cv::Mat& V) {
         unsigned char* linePS = src + y * width;
         unsigned char* linePD = dst + y * width * 3;
         int x = 0;
-#ifdef SSE
-        for(x=0; x<width-15; x+=15, linePD+=45){  // 8k 13ms-14ms
 
-            __m128i ps1 =  _mm_loadu_si128((__m128i* )(linePS+x));
-
-            __m128i shfts1 = _mm_shuffle_epi8(ps1, _mm_setr_epi8(-1, -1, 0, -1,
-                                                                 -1, 1, -1, -1,
-                                                                 2, -1, -1, 3,
-                                                                 -1, -1, 4, -1));
-
-            __m128i shfts2 = _mm_shuffle_epi8(ps1, _mm_setr_epi8(-1, -1, 5, -1,
-                                                                 -1, 6, -1, -1,
-                                                                 7, -1, -1, 8,
-                                                                 -1, -1, 9, -1));
-
-            __m128i shfts3 = _mm_shuffle_epi8(ps1, _mm_setr_epi8(-1, -1, 10, -1,
-                                                                 -1, 11, -1, -1,
-                                                                 12, -1, -1, 13,
-                                                                 -1, -1, 14, -1));
-
-            __m128i pd1 = _mm_loadu_si128((__m128i* )(linePD));
-            __m128i pdv1 = _mm_shuffle_epi8(pd1, _mm_setr_epi8(0, 1, -1, 3,
-                                                               4, -1, 6, 7,
-                                                               -1, 9, 10, -1,
-                                                               12, 13, -1, 15));
-
-            __m128i pd2 = _mm_loadu_si128((__m128i* )(linePD+15));
-            __m128i pdv2 = _mm_shuffle_epi8(pd2, _mm_setr_epi8(0, 1, -1, 3,
-                                                               4, -1, 6, 7,
-                                                               -1, 9, 10, -1,
-                                                               12, 13, -1, 15));
-
-            __m128i pd3 = _mm_loadu_si128((__m128i* )(linePD+30));
-            __m128i pdv3 = _mm_shuffle_epi8(pd3, _mm_setr_epi8(0, 1, -1, 3,
-                                                               4, -1, 6, 7,
-                                                               -1, 9, 10, -1,
-                                                               12, 13, -1, 15));
-
-            __m128i h1 = _mm_or_si128(pdv1, shfts1);
-            _mm_storeu_si128((__m128i *)(linePD), h1);
-
-            __m128i h2 = _mm_or_si128(pdv2, shfts2);
-            _mm_storeu_si128((__m128i *)(linePD+15), h2);
-
-            __m128i h3 = _mm_or_si128(pdv3, shfts3);
-            _mm_storeu_si128((__m128i *)(linePD+30), h3);
-        }
-#elif ORIG
         for(x=0; x<width-8; x+=8, linePD+=24){ // 8k 10ms-11ms
             linePD[2] = linePS[x];
             linePD[5] = linePS[x+1];
@@ -415,7 +368,6 @@ cv::Mat colorRestoration(cv::Mat& hsv, cv::Mat& V) {
             linePD[20] = linePS[x+6];
             linePD[23] = linePS[x+7];
         }
-#endif
         for(; x<width; ++x, linePD+=3)
             linePD[2] = linePS[x];
     }

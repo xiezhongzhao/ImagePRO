@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.23.2)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAEK_BUILD_TYPE Release)
 endif()
+
+#add_definitions(-DORIG)
+add_definitions(-DSSE) # -DORIG -DSSE
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

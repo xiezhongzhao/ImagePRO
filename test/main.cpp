@@ -10,13 +10,12 @@
 #define WIDTH 1920
 #define HEIGHT 1080
 
-int main(){
+void denoiseTest(){
     // read the yuv stream
     string prefix = "E:/WorkSpace/CPlusPlus/ImagePRO/data/";
     string fileFolder = prefix + "data6/";
     string fileExtension = "*.yuv";
-    string saveVideoPath = prefix + "tcl.avi";
-    Size small_size = Size(WIDTH/2, HEIGHT/2);
+    string saveVideoPath = prefix + "tcl_v2.0.avi";
 
     // save the denoised video
     cv::VideoWriter writer;
@@ -32,21 +31,26 @@ int main(){
     vector<Mat> yuv_pre(3);
     vector<Mat> yuv(3);
 
+    std::unique_ptr<Timer::Timer> timer;
     std::unique_ptr<denoise::VideoDenoise> video_denoise
             = std::make_unique<denoise::VideoDenoise>(WIDTH, HEIGHT);
     while(frameCount < v_filenames.size()){
         yuv = denoise::readYUV(fileFolder, v_filenames[frameCount++], WIDTH, HEIGHT);
         if(yuv_pre[0].empty()){
-            yuv_pre[0] = yuv[0].clone();
-            yuv_pre[1] = yuv[1].clone();
-            yuv_pre[2] = yuv[2].clone();
+            yuv[0].copyTo(yuv_pre[0]);
+            cv::GaussianBlur(yuv[1], yuv[1], Size(5, 5), 1, 1);
+            cv::GaussianBlur(yuv[2], yuv[2], Size(5, 5), 1, 1);
+            yuv[1].copyTo(yuv_pre[1]);
+            yuv[2].copyTo(yuv_pre[2]);
 
             Mat bgr = denoise::yuv2bgr(yuv[0], yuv[1], yuv[2]);
             writer.write(bgr);
             continue;
         }
 
-        video_denoise->DenoiseProcess(yuv_pre, yuv); // 46ms
+//        timer = std::make_unique<Timer::Timer>("denoise");
+        video_denoise->DenoiseProcess(yuv_pre, yuv); // **ms
+//        timer->stop();
 
         cv::Mat denoisedY, denoisedU, denoisedV;
         video_denoise->GetDenoisedYUV(denoisedY, denoisedU, denoisedV);
@@ -65,5 +69,9 @@ int main(){
         writer.write(bgr);
     }
     writer.release();
+}
+
+int main(){
+    denoiseTest();
     return 0;
 }

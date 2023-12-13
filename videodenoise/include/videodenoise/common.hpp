@@ -42,12 +42,26 @@
 #include <ctime>
 #include <io.h>
 
+#include <omp.h>
+
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/video.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/utility.hpp>
+
+#include <timer/timer.hpp>
+
+#ifdef ORIG
+#define original
+#elif defined(ARM_NEON)
+#include <arm_neon.h>
+#elif defined(SSE)
+#include <xmmintrin.h>
+#include <immintrin.h>
+#include <emmintrin.h>
+#endif
 
 #define LOG(x) std::cerr
 const double PI = 3.141592653589793238463;

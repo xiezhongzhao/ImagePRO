@@ -26,32 +26,38 @@
 #define IMAGEPRO_DENOISE_HPP
 
 #include <videodenoise/common.hpp>
-#include <timer/timer.hpp>
 
 namespace denoise{
 
 class VideoDenoise{
 private:
-    const int PB = 15;
-    const int PE = 15;
+    const int PB = 16;
+    const int PE = 32;
     const float WB = 0.5;
     const float WE = 1.0;
 
-    cv::Size raw_size;
-    cv::Size small_size;
+    cv::Size y_size;
+    cv::Size uv_size;
+    cv::Size y_small_size;
+    cv::Size uv_small_size;
 
     vector<cv::Mat> yuv_pre;
     vector<cv::Mat> yuv;
 
+    vector<cv::Mat> yuv_small_pre;
+    vector<cv::Mat> yuv_small;
+
     cv::Ptr<cv::DISOpticalFlow> Dis;
     std::unique_ptr<Timer::Timer> timer;
 
-    cv::Mat flow_op;
-    cv::Mat flow_op_displacement;
-    cv::Mat flow_op2_displacement;
+    cv::Mat flow_op, flow_op_small;
+    cv::Mat flow_op_displacement, flow_op_small_displacement;
+    cv::Mat flow_op2_displacement, flow_op2_small_displacement;
 
     cv::Mat y_remap, u_remap, v_remap;
+    cv::Mat y_remap_small, u_remap_small, v_remap_small;
     cv::Mat denoised_y, denoised_u, denoised_v;
+    cv::Mat denoised_y_small, denoised_u_small, denoised_v_small;
 public:
     VideoDenoise(int width, int height);
     ~VideoDenoise();
@@ -63,12 +69,14 @@ public:
 
     void RemapYUV();
 
-    void Fusion();
+    void Blend(cv::Mat& pre, cv::Mat& cur, int multiple);
+
+    void YUVFusion();
 
     void FilterYUV();
 
     void DenoiseProcess(vector<cv::Mat>& yuv_pre,
-                               vector<cv::Mat>& yuv);
+                        vector<cv::Mat>& yuv);
 
     void GetDenoisedYUV(cv::Mat& denoised_y,
                         cv::Mat& denoised_u,

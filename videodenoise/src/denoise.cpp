@@ -29,51 +29,87 @@ namespace denoise{
     VideoDenoise::VideoDenoise(int width, int height) {
         width = width;
         height = height;
-        raw_size = cv::Size(width, height);
-        small_size = cv::Size(width/2, height/2);
+        y_size = cv::Size(width, height);
+        uv_size = cv::Size(width/2, height/2);
+
+        y_small_size = cv::Size(width/2, height/2);
+        uv_small_size = cv::Size(width/4, height/4);
 
         yuv_pre = vector<cv::Mat>(3);
         yuv = vector<cv::Mat>(3);
 
-        yuv_pre[0] = cv::Mat(raw_size, CV_8UC1);
-        yuv_pre[1] = cv::Mat(small_size, CV_8UC1);
-        yuv_pre[2] = cv::Mat(small_size, CV_8UC1);
+        yuv_pre[0] = cv::Mat(y_size, CV_8UC1);
+        yuv_pre[1] = cv::Mat(uv_size, CV_8UC1);
+        yuv_pre[2] = cv::Mat(uv_size, CV_8UC1);
 
-        yuv[0] = cv::Mat(raw_size, CV_8UC1);
-        yuv[1] = cv::Mat(small_size, CV_8UC1);
-        yuv[2] = cv::Mat(small_size, CV_8UC1);
+        yuv[0] = cv::Mat(y_size, CV_8UC1);
+        yuv[1] = cv::Mat(uv_size, CV_8UC1);
+        yuv[2] = cv::Mat(uv_size, CV_8UC1);
 
-        flow_op = cv::Mat(raw_size, CV_32FC2); // Δ
-        flow_op_displacement = cv::Mat(raw_size, CV_32FC2); // (x+Δx, y+Δy)
-        flow_op2_displacement = cv::Mat(small_size, CV_32FC2);
+        yuv_small_pre = vector<cv::Mat>(3);
+        yuv_small = vector<cv::Mat>(3);
+
+        yuv_small_pre[0] = cv::Mat(y_small_size, CV_8UC1);
+        yuv_small_pre[1] = cv::Mat(uv_small_size, CV_8UC1);
+        yuv_small_pre[2] = cv::Mat(uv_small_size, CV_8UC1);
+
+        yuv_small[0] = cv::Mat(y_small_size, CV_8UC1);
+        yuv_small[1] = cv::Mat(uv_small_size, CV_8UC1);
+        yuv_small[2] = cv::Mat(uv_small_size, CV_8UC1);
+
+        y_remap = cv::Mat(y_size, CV_8UC1);
+        u_remap = cv::Mat(uv_size, CV_8UC1);
+        v_remap = cv::Mat(uv_size, CV_8UC1);
+
+        y_remap_small =  cv::Mat(y_small_size, CV_8UC1);
+        u_remap_small =  cv::Mat(uv_small_size, CV_8UC1);
+        v_remap_small =  cv::Mat(uv_small_size, CV_8UC1);
+
+        flow_op = cv::Mat(y_size, CV_32FC2); // Δ
+        flow_op_displacement = cv::Mat(y_size, CV_32FC2); // (x+Δx, y+Δy)
+        flow_op2_displacement = cv::Mat(uv_size, CV_32FC2);
+
+        flow_op_small = cv::Mat(y_small_size, CV_32FC2);
+        flow_op_small_displacement = cv::Mat(y_small_size, CV_32FC2);
+        flow_op2_small_displacement = cv::Mat(uv_small_size, CV_32FC2);
+
+        denoised_y = cv::Mat(y_size, CV_8UC1);
+        denoised_u = cv::Mat(uv_size, CV_8UC1);
+        denoised_v = cv::Mat(uv_size, CV_8UC1);
+
+        denoised_y_small = cv::Mat(y_small_size, CV_8UC1);
+        denoised_u_small = cv::Mat(uv_small_size, CV_8UC1);
+        denoised_v_small = cv::Mat(uv_small_size, CV_8UC1);
 
         Dis =  cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
 
     }
 
-    VideoDenoise::~VideoDenoise() {
-
-    }
+    VideoDenoise::~VideoDenoise() = default;
 
     void VideoDenoise::EstimateMotion(vector<cv::Mat> &yuv_pre_, vector<cv::Mat> &yuv_cur_) {
-        yuv_pre[0] = yuv_pre_[0].clone();
-        yuv_pre[1] = yuv_pre_[1].clone();
-        yuv_pre[2] = yuv_pre_[2].clone();
 
-        yuv[0] = yuv_cur_[0];
-        yuv[1] = yuv_cur_[1];
-        yuv[2] = yuv_cur_[2];
+        yuv_pre = yuv_pre_;
+        yuv = yuv_cur_;
 
-        Dis->calc(yuv_pre[0], yuv[0], flow_op); // 15.9ms
+        cv::resize(yuv_pre[0], yuv_small_pre[0], y_small_size,2, 2, cv::INTER_NEAREST);
+        cv::resize(yuv_pre[1], yuv_small_pre[1], uv_small_size,2, 2, cv::INTER_NEAREST);
+        cv::resize(yuv_pre[2], yuv_small_pre[2], uv_small_size,2, 2, cv::INTER_NEAREST);
+
+        cv::resize(yuv[0], yuv_small[0], y_small_size,2, 2, cv::INTER_NEAREST);
+        cv::resize(yuv[1], yuv_small[1], uv_small_size,2, 2, cv::INTER_NEAREST);
+        cv::resize(yuv[2], yuv_small[2], uv_small_size,2, 2, cv::INTER_NEAREST);
+
+        Dis->calc(yuv_small_pre[0], yuv_small[0], flow_op_small); // 5 ms
     }
 
-    void VideoDenoise::GetYUVAbsoluteMotion() {  // 3.78ms ->
+    void VideoDenoise::GetYUVAbsoluteMotion() {  // 1 ms
         // Y, U, V displacement
-        for(int i=0; i<flow_op.rows; ++i){
-            cv::Vec2f* pData_src = flow_op.ptr<cv::Vec2f>(i);
-            cv::Vec2f* pData_dst = flow_op_displacement.ptr<cv::Vec2f>(i);
-            cv::Vec2f* pData2_dst = flow_op2_displacement.ptr<cv::Vec2f>(i/2);
-            for(int j=0; j<flow_op.cols; ++j){
+        for(int i=0; i<flow_op_small.rows; ++i){
+            cv::Vec2f* pData_src = flow_op_small.ptr<cv::Vec2f>(i);
+            cv::Vec2f* pData_dst = flow_op_small_displacement.ptr<cv::Vec2f>(i);
+            cv::Vec2f* pData2_dst = flow_op2_small_displacement.ptr<cv::Vec2f>(i/2);
+            for(int j=0; j<flow_op_small.cols; ++j){
                 pData_dst[j][0] = pData_src[j][0] + j;
                 pData_dst[j][1] = pData_src[j][1] + i;
                 pData2_dst[j/2][0] = pData_src[j][0]/2 + j/2;
@@ -82,85 +118,162 @@ namespace denoise{
         }
     }
 
-    void VideoDenoise::RemapYUV() { // 8ms ->
+    void VideoDenoise::RemapYUV() { // 2.2ms
 
         // split y displacement
-        Mat flow_y_displacement[2];
-        split(flow_op_displacement, flow_y_displacement);
+        Mat flow_y_small_displacement[2];
+        split(flow_op_small_displacement, flow_y_small_displacement);
 
         // split uv displacemnet
-        cv::Mat flow_uv_displacement[2];
-        split(flow_op2_displacement, flow_uv_displacement);
+        cv::Mat flow_uv_small_displacement[2];
+        split(flow_op2_small_displacement, flow_uv_small_displacement);
 
         // remap
-        remap(yuv_pre[0], denoised_y, flow_y_displacement[0], flow_y_displacement[1],cv::INTER_NEAREST);
-        remap(yuv_pre[1], denoised_u, flow_uv_displacement[0], flow_uv_displacement[1],cv::INTER_NEAREST);
-        remap(yuv_pre[2], denoised_v, flow_uv_displacement[0], flow_uv_displacement[1],cv::INTER_NEAREST);
+        remap(yuv_small_pre[0], y_remap_small, flow_y_small_displacement[0], flow_y_small_displacement[1],cv::INTER_NEAREST);
+        remap(yuv_small_pre[1], u_remap_small, flow_uv_small_displacement[0], flow_uv_small_displacement[1],cv::INTER_NEAREST);
+        remap(yuv_small_pre[2], v_remap_small, flow_uv_small_displacement[0], flow_uv_small_displacement[1],cv::INTER_NEAREST);
+
+        // enlarger 2×
+        cv::resize(y_remap_small, y_remap, y_size, 0.5, 0.5, cv::INTER_NEAREST);
     }
 
-    void VideoDenoise::Fusion(){ // 12.5ms ->
-        // fusion y, u, v
-        float ratio;
-        cv::Mat y_diff;
+    void VideoDenoise::Blend(cv::Mat& pre, cv::Mat& cur, int multiple){ // 12ms->3ms ???
+        int pb = PB / multiple;  // 16
+        int pe = PE / multiple;  // 32
+        int wb = WB;  //  0.5
+        int we = WE;  //  1.0
 
-        cv::absdiff(yuv[0], denoised_y, y_diff);
-        for(int i=0; i<y_diff.rows; ++i){
-            for(int j=0; j<y_diff.cols; ++j){
-                int delta = y_diff.at<uchar>(i, j);
-                if(delta <= PB){ // <=15
-                    ratio = WB; // 0.5
-                }else if(delta > PE){  // >=30
-                    ratio = WE; // 1
-                }else{
-                    ratio = (WE-WB)/(PE-PB)*(delta+PB*WE-PE*WB);
-                }
-                denoised_y.at<uchar>(i,j) = (1-ratio) * denoised_y.at<uchar>(i,j)
-                                           + ratio * yuv[0].at<uchar>(i,j);
+        float weight1 = (we - wb) / (pe - pb);  // 0.5/16
+        float weight2 = pb * we - pe * wb; // 16 - 16
+        cv::Mat diff;
+        cv::absdiff(cur, pre, diff);
+        const int height = diff.rows;
+        const int width = diff.cols;
+
+        float ratio[256], ratio_mi[256];
+        for(int delta=0; delta<=255; ++delta){
+            int weight = 0;
+            if(delta <= pb){
+                weight = wb;
+            }else if(delta > pe){
+                weight = we;
+            }else{
+                weight = weight1 * (delta + weight2);
             }
-        }
-        cv::Mat u_diff;
-        cv::absdiff(yuv[1], denoised_u, u_diff);
-        for(int i=0; i<u_diff.rows; ++i){
-            for(int j=0; j<u_diff.cols; ++j){
-                int delta = u_diff.at<uchar>(i, j);
-                if(delta <= PB){ // <=15
-                    ratio = WB; // 0.5
-                }else if(delta > PE){  // >=30
-                    ratio = WE; // 1
-                }else{
-                    ratio = (WE-WB)/(PE-PB)*(delta+PB*WE-PE*WB);
-                }
-                denoised_u.at<uchar>(i,j) = (1-ratio) * denoised_u.at<uchar>(i,j)
-                                           + ratio * yuv[1].at<uchar>(i,j);
-            }
+            ratio[delta] = weight;
+            ratio_mi[delta] = 1.f - weight;
         }
 
-        cv::Mat v_diff;
-        cv::absdiff(yuv[2], denoised_v, v_diff);
-        for(int i=0; i<v_diff.rows; ++i){
-            for(int j=0; j<v_diff.cols; ++j){
-                int delta = v_diff.at<uchar>(i, j);
-                if(delta <= PB){ // <=15
-                    ratio = WB; // 0.5
-                }else if(delta > PE){  // >=30
-                    ratio = WE; // 1
-                }else{
-                    ratio = (WE-WB)/(PE-PB)*(delta+PB*WE-PE*WB);
-                }
-                denoised_v.at<uchar>(i,j) = (1-ratio) * denoised_v.at<uchar>(i,j)
-                                           + ratio * yuv[2].at<uchar>(i,j);
+        unsigned char* pDiff = diff.data;
+        unsigned char* pPre = pre.data;
+        unsigned char* pCur = cur.data;
+
+        for(int y=0; y<height; ++y){
+            unsigned char* linePDiff = pDiff + y * width;
+            unsigned char* linePPre = pPre + y * width;
+            unsigned char* linePCur = pCur + y * width;
+#ifdef SSE   // 4.5 ms  bad !!!
+            int x = 0;
+            for(x=0; x<width-3; x+=4){
+                // 计算权重
+                __m128 weight = _mm_setr_ps(ratio[linePDiff[x]], ratio[linePDiff[x+1]],
+                                            ratio[linePDiff[x+2]], ratio[linePDiff[x+3]]);
+                __m128 weight_mi = _mm_setr_ps(ratio_mi[linePDiff[x]], ratio_mi[linePDiff[x+1]],
+                                               ratio_mi[linePDiff[x+2]], ratio_mi[linePDiff[x+3]]);
+
+                __m128i pre_data = _mm_loadu_si128((__m128i*)(linePPre + x));
+                __m128i cur_data = _mm_loadu_si128((__m128i*)(linePCur + x));
+
+                __m128 pre_val = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(pre_data));
+                __m128 cur_val = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(cur_data));
+
+                __m128i result = _mm_cvtps_epi32(_mm_add_ps(
+                                _mm_mul_ps(weight_mi ,pre_val),
+                                _mm_mul_ps(weight, cur_val)));
+
+                __m128i pack_result1 = _mm_packus_epi16(result, _mm_setzero_si128());
+                __m128i pack_result2 = _mm_packus_epi16(pack_result1, _mm_setzero_si128());
+
+                __m128i shuffle_mask = _mm_setr_epi8(
+                        12, 8, 4, 0,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1,
+                        -1, -1, -1,-1
+                );
+                __m128i shuffled_values = _mm_shuffle_epi8(result, shuffle_mask);
+
+                // 将结果写回内存
+                _mm_storeu_si128((__m128i*)(linePCur + x), shuffled_values);
             }
+            for(; x<width; ++x){
+                int delta = linePDiff[x];
+                linePCur[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
+            }
+#elif ORIG  // 10~13ms -> 6~10ms
+            for(int x=0; x<width; ++x){
+                int delta = linePDiff[x];
+                linePCur[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
+            }
+#endif
         }
+    }
+
+    void VideoDenoise::YUVFusion(){ // 12.5ms ->
+        // fusion y of the original image -> ok !!!
+        cv::Mat y_src;
+        yuv[0].copyTo(y_src);
+        Blend(y_remap, yuv[0], 1); // fusion y (src size)
+        cv::Mat y_src_denoised;
+        cv::addWeighted(y_src, 0.33,
+                        yuv[0], 0.67, 0, y_src_denoised);
+
+        // fusion y of the small image -> ok !!!
+        cv::Mat y_small;
+        yuv_small[0].copyTo(y_small);
+        Blend(y_remap_small, yuv_small[0], 2); // fusion y (small size)
+        Blend(u_remap_small, yuv_small[1], 4); // fusion u (small size)
+        Blend(v_remap_small, yuv_small[2], 4); // fusion v (small size)
+
+        cv::addWeighted(y_small, 0.33,
+                        yuv_small[0], 0.67, 0, yuv_small[0]);
+        cv::Mat y_small_resize_denoised;
+        cv::resize(yuv_small[0], y_small_resize_denoised, y_size, 0.5, 0.5, cv::INTER_NEAREST);
+
+        // fusion the two branches
+        cv::addWeighted(y_small_resize_denoised, 0.5,
+                        y_src_denoised, 0.5 , 0, denoised_y);
+
+        // fusion the current and previous denoised frame
+        cv::addWeighted(yuv_pre[0], 0.33,
+                        denoised_y, 0.67, 0, denoised_y);// fusion from two branches
+
     }
 
     void VideoDenoise::FilterYUV(){
-        cv::GaussianBlur(denoised_y, denoised_y, Size(5, 5), 1, 1);
-        cv::GaussianBlur(denoised_u, denoised_u, Size(5, 5), 1, 1);
-        cv::GaussianBlur(denoised_v, denoised_v, Size(5, 5), 1, 1);
+
+//        cv::GaussianBlur(denoised_y, denoised_y, Size(3, 3), 0.6, 0.6);
+
+        cv::GaussianBlur(yuv_small[1], denoised_u_small, Size(3, 3), 1, 1);
+        cv::GaussianBlur(yuv_small[2], denoised_v_small, Size(3, 3), 1, 1);
+        cv::resize(denoised_u_small, denoised_u, uv_size, 0.5, 0.5, cv::INTER_AREA);
+        cv::resize(denoised_v_small, denoised_v, uv_size, 0.5, 0.5, cv::INTER_AREA);
+
+        // fusion the previous(denoised) and current u
+        cv::addWeighted(yuv_pre[1], 0.33,
+                        denoised_u, 0.67, 0, denoised_u);// fusion from two branches
+
+        // fusion the previous(denoised) and current v
+        cv::addWeighted(yuv_pre[2], 0.33,
+                        denoised_v, 0.67, 0, denoised_v);// fusion from two branches
     }
 
     void VideoDenoise::DenoiseProcess(vector<cv::Mat> &yuv_pre,
                                       vector<cv::Mat> &yuv) {
+//        EstimateMotion(yuv_pre, yuv);
+//        GetYUVAbsoluteMotion();
+//        RemapYUV();
+//        YUVFusion();
+//        FilterYUV();
 
         timer = std::make_unique<Timer::Timer>("EstimateMotion");
         EstimateMotion(yuv_pre, yuv);
@@ -174,8 +287,8 @@ namespace denoise{
         RemapYUV();
         timer->stop();
 
-        timer = std::make_unique<Timer::Timer>("Fusion");
-        Fusion();
+        timer = std::make_unique<Timer::Timer>("YUVFusion");
+        YUVFusion();
         timer->stop();
 
         timer = std::make_unique<Timer::Timer>("FilterYUV");
@@ -187,11 +300,15 @@ namespace denoise{
     void VideoDenoise::GetDenoisedYUV(cv::Mat& y,
                                       cv::Mat& u,
                                       cv::Mat& v){
-        y = denoised_y;
-        u = denoised_u;
-        v = denoised_v;
-    }
+        denoised_y.copyTo(y);
+        denoised_u.copyTo(u);
+        denoised_v.copyTo(v);
 
+        denoised_y.copyTo(yuv_pre[0]);
+        denoised_u.copyTo(yuv_pre[1]);
+        denoised_v.copyTo(yuv_pre[2]);
+
+    }
 }
 
 
