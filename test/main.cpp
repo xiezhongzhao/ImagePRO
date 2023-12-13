@@ -49,7 +49,7 @@ void denoiseTest(){
         }
 
 //        timer = std::make_unique<Timer::Timer>("denoise");
-        video_denoise->DenoiseProcess(yuv_pre, yuv); // **ms
+        video_denoise->DenoiseProcess(yuv_pre, yuv); //
 //        timer->stop();
 
         cv::Mat denoisedY, denoisedU, denoisedV;
