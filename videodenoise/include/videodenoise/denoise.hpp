@@ -70,6 +70,7 @@ public:
     void RemapYUV();
 
     void Blend(cv::Mat& pre, cv::Mat& cur, int multiple);
+    void BlendUV(cv::Mat& pre, cv::Mat& cur, int multiple);
 
     void YUVFusion();
 

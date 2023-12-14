@@ -64,5 +64,9 @@ using cv::Size;
 using cv::INTER_AREA;
 using cv::BORDER_CONSTANT;
 
+namespace contrast{
 
+    void SECE(cv::Mat& y);
+
+}
 #endif //IMAGEPRO_SECEDCT_HPP

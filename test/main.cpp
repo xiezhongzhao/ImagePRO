@@ -48,12 +48,20 @@ void denoiseTest(){
             continue;
         }
 
+        // contrast enhancement
+        //timer = std::make_unique<Timer::Timer>("SECE");
+        //contrast::SECE(yuv[0]);
+        //timer->stop();
+
 //        timer = std::make_unique<Timer::Timer>("denoise");
         video_denoise->DenoiseProcess(yuv_pre, yuv); // 15ms
 //        timer->stop();
 
         cv::Mat denoisedY, denoisedU, denoisedV;
         video_denoise->GetDenoisedYUV(denoisedY, denoisedU, denoisedV);
+        cv::imshow("y", denoisedY);
+        cv::waitKey(1);
+        cout << endl;
 
         // IIR
         denoisedY.copyTo(yuv_pre[0]);
@@ -67,6 +75,7 @@ void denoiseTest(){
 
         // write the denoised video
         writer.write(bgr);
+
     }
     writer.release();
 }

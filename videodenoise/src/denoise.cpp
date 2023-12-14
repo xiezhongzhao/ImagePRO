@@ -164,25 +164,30 @@ namespace denoise{
             ratio_mi[delta] = 1.f - weight;
         }
 
+        cv::Mat curCopy;
+        cur.copyTo(curCopy);
+
         unsigned char* pDiff = diff.data;
         unsigned char* pPre = pre.data;
         unsigned char* pCur = cur.data;
+        unsigned char* pCurCopy = curCopy.data;
 
+#ifdef SSE   // 4.5 ms good !!!
         for(int y=0; y<height; ++y){
             unsigned char* linePDiff = pDiff + y * width;
             unsigned char* linePPre = pPre + y * width;
             unsigned char* linePCur = pCur + y * width;
-#ifdef SSE   // 4.5 ms  bad !!!
+            unsigned char* linePCurCopy = pCurCopy + y * width;
             int x = 0;
-            for(x=0; x<width-3; x+=4){
+            for(x=0; x<width-16; x+=16){
                 // 计算权重
-                __m128 weight = _mm_setr_ps(ratio[linePDiff[x]], ratio[linePDiff[x+1]],
-                                            ratio[linePDiff[x+2]], ratio[linePDiff[x+3]]);
-                __m128 weight_mi = _mm_setr_ps(ratio_mi[linePDiff[x]], ratio_mi[linePDiff[x+1]],
-                                               ratio_mi[linePDiff[x+2]], ratio_mi[linePDiff[x+3]]);
+                __m128 weight = _mm_set_ps(ratio[linePDiff[x+3]], ratio[linePDiff[x+2]],
+                                            ratio[linePDiff[x+1]], ratio[linePDiff[x]]);
+                __m128 weight_mi = _mm_set_ps(ratio_mi[linePDiff[x+3]], ratio_mi[linePDiff[x+2]],
+                                               ratio_mi[linePDiff[x+1]], ratio_mi[linePDiff[x]]);
 
-                __m128i pre_data = _mm_loadu_si128((__m128i*)(linePPre + x));
-                __m128i cur_data = _mm_loadu_si128((__m128i*)(linePCur + x));
+                __m128i pre_data = _mm_loadu_si128((__m128i*)(linePPre+x));
+                __m128i cur_data = _mm_loadu_si128((__m128i*)(linePCur+x));
 
                 __m128 pre_val = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(pre_data));
                 __m128 cur_val = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(cur_data));
@@ -191,30 +196,78 @@ namespace denoise{
                                 _mm_mul_ps(weight_mi ,pre_val),
                                 _mm_mul_ps(weight, cur_val)));
 
-                __m128i pack_result1 = _mm_packus_epi16(result, _mm_setzero_si128());
-                __m128i pack_result2 = _mm_packus_epi16(pack_result1, _mm_setzero_si128());
-
                 __m128i shuffle_mask = _mm_setr_epi8(
-                        12, 8, 4, 0,
+                        0, 4, 8, 12,
                         -1, -1, -1, -1,
                         -1, -1, -1, -1,
-                        -1, -1, -1,-1
+                        -1, -1, -1, -1
                 );
                 __m128i shuffled_values = _mm_shuffle_epi8(result, shuffle_mask);
 
                 // 将结果写回内存
-                _mm_storeu_si128((__m128i*)(linePCur + x), shuffled_values);
+                _mm_storeu_si128((__m128i*)(linePCurCopy+x), shuffled_values);
             }
+
             for(; x<width; ++x){
                 int delta = linePDiff[x];
-                linePCur[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
+                linePCurCopy[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
             }
+        }
+        curCopy.copyTo(cur);
+
 #elif ORIG  // 10~13ms -> 6~10ms
+         for(int y=0; y<height; ++y){
+            unsigned char* linePDiff = pDiff + y * width;
+            unsigned char* linePPre = pPre + y * width;
+            unsigned char* linePCur = pCur + y * width;
             for(int x=0; x<width; ++x){
                 int delta = linePDiff[x];
                 linePCur[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
             }
+         }
 #endif
+    }
+
+    void VideoDenoise::BlendUV(cv::Mat& pre, cv::Mat& cur, int multiple){
+
+        int pb = PB / multiple;  // 8     4
+        int pe = PE / multiple;  // 16    8
+        int wb = WB;  //  0.5
+        int we = WE;  //  1.0
+
+        float weight1 = (we - wb) / (pe - pb);  // 0.5/16
+        float weight2 = pb * we - pe * wb; // 16 - 16
+        cv::Mat diff;
+        cv::absdiff(cur, pre, diff);
+        const int height = diff.rows;
+        const int width = diff.cols;
+
+        float ratio[256], ratio_mi[256];
+        for(int delta=0; delta<=255; ++delta){
+            int weight = 0;
+            if(delta <= pb){
+                weight = wb;
+            }else if(delta > pe){
+                weight = we;
+            }else{
+                weight = weight1 * (delta + weight2);
+            }
+            ratio[delta] = weight;
+            ratio_mi[delta] = 1.f - weight;
+        }
+
+        unsigned char* pDiff = diff.data;
+        unsigned char* pPre = pre.data;
+        unsigned char* pCur = cur.data;
+
+        for(int y=0; y<height; ++y){
+            unsigned char* linePDiff = pDiff + y * width;
+            unsigned char* linePPre = pPre + y * width;
+            unsigned char* linePCur = pCur + y * width;
+            for(int x=0; x<width; ++x){
+                int delta = linePDiff[x];
+                linePCur[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
+            }
         }
     }
 
@@ -294,7 +347,6 @@ namespace denoise{
         timer = std::make_unique<Timer::Timer>("FilterYUV");
         FilterYUV();
         timer->stop();
-        cout << endl;
     }
 
     void VideoDenoise::GetDenoisedYUV(cv::Mat& y,
