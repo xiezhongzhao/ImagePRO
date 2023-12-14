@@ -143,8 +143,8 @@ namespace denoise{
         int wb = WB;  //  0.5
         int we = WE;  //  1.0
 
-        float weight1 = (we - wb) / (pe - pb);  // 0.5/16
-        float weight2 = pb * we - pe * wb; // 16 - 16
+        float ratio_weight1 = (we - wb) / (pe - pb);  // 0.5/16
+        float ratio_weight2 = pb * we - pe * wb; // 16 - 16
         cv::Mat diff;
         cv::absdiff(cur, pre, diff);
         const int height = diff.rows;
@@ -152,13 +152,13 @@ namespace denoise{
 
         float ratio[256], ratio_mi[256];
         for(int delta=0; delta<=255; ++delta){
-            int weight = 0;
+            float weight = 0.f;
             if(delta <= pb){
                 weight = wb;
             }else if(delta > pe){
                 weight = we;
             }else{
-                weight = weight1 * (delta + weight2);
+                weight = ratio_weight1 * (static_cast<float>(delta) + ratio_weight2);
             }
             ratio[delta] = weight;
             ratio_mi[delta] = 1.f - weight;
@@ -172,7 +172,7 @@ namespace denoise{
         unsigned char* pCur = cur.data;
         unsigned char* pCurCopy = curCopy.data;
 
-#ifdef SSE   // 4.5 ms good !!!
+#ifdef SSE   // 6.5 ms good !!!
         for(int y=0; y<height; ++y){
             unsigned char* linePDiff = pDiff + y * width;
             unsigned char* linePPre = pPre + y * width;
@@ -181,31 +181,114 @@ namespace denoise{
             int x = 0;
             for(x=0; x<width-16; x+=16){
                 // 计算权重
-                __m128 weight = _mm_set_ps(ratio[linePDiff[x+3]], ratio[linePDiff[x+2]],
+                __m128 weight1 = _mm_set_ps(ratio[linePDiff[x+3]], ratio[linePDiff[x+2]],
                                             ratio[linePDiff[x+1]], ratio[linePDiff[x]]);
-                __m128 weight_mi = _mm_set_ps(ratio_mi[linePDiff[x+3]], ratio_mi[linePDiff[x+2]],
+                __m128 weight_mi1 = _mm_set_ps(ratio_mi[linePDiff[x+3]], ratio_mi[linePDiff[x+2]],
                                                ratio_mi[linePDiff[x+1]], ratio_mi[linePDiff[x]]);
 
+                __m128 weight2 = _mm_set_ps(ratio[linePDiff[x+7]], ratio[linePDiff[x+6]],
+                                            ratio[linePDiff[x+5]], ratio[linePDiff[x+4]]);
+                __m128 weight_mi2 = _mm_set_ps(ratio_mi[linePDiff[x+7]], ratio_mi[linePDiff[x+6]],
+                                               ratio_mi[linePDiff[x+5]], ratio_mi[linePDiff[x+4]]);
+
+                __m128 weight3 = _mm_set_ps(ratio[linePDiff[x+11]], ratio[linePDiff[x+10]],
+                                            ratio[linePDiff[x+9]], ratio[linePDiff[x+8]]);
+                __m128 weight_mi3 = _mm_set_ps(ratio_mi[linePDiff[x+11]], ratio_mi[linePDiff[x+10]],
+                                               ratio_mi[linePDiff[x+9]], ratio_mi[linePDiff[x+8]]);
+
+                __m128 weight4 = _mm_set_ps(ratio[linePDiff[x+15]], ratio[linePDiff[x+14]],
+                                            ratio[linePDiff[x+13]], ratio[linePDiff[x+12]]);
+                __m128 weight_mi4 = _mm_set_ps(ratio_mi[linePDiff[x+15]], ratio_mi[linePDiff[x+14]],
+                                               ratio_mi[linePDiff[x+13]], ratio_mi[linePDiff[x+12]]);
+
+                // load the data
                 __m128i pre_data = _mm_loadu_si128((__m128i*)(linePPre+x));
                 __m128i cur_data = _mm_loadu_si128((__m128i*)(linePCur+x));
 
-                __m128 pre_val = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(pre_data));
-                __m128 cur_val = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(cur_data));
+                __m128 pre_val1 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(pre_data));
+                __m128 cur_val1 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(cur_data));
+                __m128i result1 = _mm_cvtps_epi32(_mm_add_ps(
+                                _mm_mul_ps(weight_mi1,pre_val1),
+                                _mm_mul_ps(weight1, cur_val1)));
 
-                __m128i result = _mm_cvtps_epi32(_mm_add_ps(
-                                _mm_mul_ps(weight_mi ,pre_val),
-                                _mm_mul_ps(weight, cur_val)));
+                __m128i shuffle_mask2 = _mm_setr_epi8(
+                        4, 5, 6, 7,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1
+                );
+                __m128i pre_data2 = _mm_shuffle_epi8(pre_data, shuffle_mask2);
+                __m128i cur_data2 = _mm_shuffle_epi8(cur_data, shuffle_mask2);
+                __m128 pre_val2 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(pre_data2));
+                __m128 cur_val2 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(cur_data2));
+                __m128i result2 = _mm_cvtps_epi32(_mm_add_ps(
+                        _mm_mul_ps(weight_mi2,pre_val2),
+                        _mm_mul_ps(weight2, cur_val2)));
 
-                __m128i shuffle_mask = _mm_setr_epi8(
+                __m128i shuffle_mask3 = _mm_setr_epi8(
+                        8, 9, 10, 11,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1
+                );
+                __m128i pre_data3 = _mm_shuffle_epi8(pre_data, shuffle_mask3);
+                __m128i cur_data3 = _mm_shuffle_epi8(cur_data, shuffle_mask3);
+                __m128 pre_val3 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(pre_data3));
+                __m128 cur_val3 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(cur_data3));
+                __m128i result3 = _mm_cvtps_epi32(_mm_add_ps(
+                        _mm_mul_ps(weight_mi3,pre_val3),
+                        _mm_mul_ps(weight3, cur_val3)));
+
+                __m128i shuffle_mask4 = _mm_setr_epi8(
+                        12, 13, 14, 15,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1
+                );
+                __m128i pre_data4 = _mm_shuffle_epi8(pre_data, shuffle_mask4);
+                __m128i cur_data4 = _mm_shuffle_epi8(cur_data, shuffle_mask4);
+                __m128 pre_val4 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(pre_data4));
+                __m128 cur_val4 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(cur_data4));
+                __m128i result4 = _mm_cvtps_epi32(_mm_add_ps(
+                        _mm_mul_ps(weight_mi4,pre_val4),
+                        _mm_mul_ps(weight4, cur_val4)));
+
+                __m128i shft1 = _mm_setr_epi8(
                         0, 4, 8, 12,
                         -1, -1, -1, -1,
                         -1, -1, -1, -1,
                         -1, -1, -1, -1
                 );
-                __m128i shuffled_values = _mm_shuffle_epi8(result, shuffle_mask);
+                __m128i shft2 = _mm_setr_epi8(
+                        -1, -1, -1, -1,
+                        0, 4, 8, 12,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1
+                );
+                __m128i shft3 = _mm_setr_epi8(
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1,
+                        0, 4, 8, 12,
+                        -1, -1, -1, -1
+                );
+                __m128i shft4 = _mm_setr_epi8(
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1,
+                        -1, -1, -1, -1,
+                        0, 4, 8, 12
+                );
+                __m128i res1 = _mm_shuffle_epi8(result1, shft1);
+                __m128i res2 = _mm_shuffle_epi8(result2, shft2);
+                __m128i res3 = _mm_shuffle_epi8(result3, shft3);
+                __m128i res4 = _mm_shuffle_epi8(result4, shft4);
+
+                __m128i res = _mm_or_si128(
+                        _mm_or_si128(res1, res2),
+                        _mm_or_si128(res3, res4)
+                        );
 
                 // 将结果写回内存
-                _mm_storeu_si128((__m128i*)(linePCurCopy+x), shuffled_values);
+                _mm_storeu_si128((__m128i*)(linePCurCopy+x), res);
             }
 
             for(; x<width; ++x){
@@ -215,7 +298,7 @@ namespace denoise{
         }
         curCopy.copyTo(cur);
 
-#elif ORIG  // 10~13ms -> 6~10ms
+#elif ORIG  // 10~13ms -> 7~10ms
          for(int y=0; y<height; ++y){
             unsigned char* linePDiff = pDiff + y * width;
             unsigned char* linePPre = pPre + y * width;
@@ -226,49 +309,6 @@ namespace denoise{
             }
          }
 #endif
-    }
-
-    void VideoDenoise::BlendUV(cv::Mat& pre, cv::Mat& cur, int multiple){
-
-        int pb = PB / multiple;  // 8     4
-        int pe = PE / multiple;  // 16    8
-        int wb = WB;  //  0.5
-        int we = WE;  //  1.0
-
-        float weight1 = (we - wb) / (pe - pb);  // 0.5/16
-        float weight2 = pb * we - pe * wb; // 16 - 16
-        cv::Mat diff;
-        cv::absdiff(cur, pre, diff);
-        const int height = diff.rows;
-        const int width = diff.cols;
-
-        float ratio[256], ratio_mi[256];
-        for(int delta=0; delta<=255; ++delta){
-            int weight = 0;
-            if(delta <= pb){
-                weight = wb;
-            }else if(delta > pe){
-                weight = we;
-            }else{
-                weight = weight1 * (delta + weight2);
-            }
-            ratio[delta] = weight;
-            ratio_mi[delta] = 1.f - weight;
-        }
-
-        unsigned char* pDiff = diff.data;
-        unsigned char* pPre = pre.data;
-        unsigned char* pCur = cur.data;
-
-        for(int y=0; y<height; ++y){
-            unsigned char* linePDiff = pDiff + y * width;
-            unsigned char* linePPre = pPre + y * width;
-            unsigned char* linePCur = pCur + y * width;
-            for(int x=0; x<width; ++x){
-                int delta = linePDiff[x];
-                linePCur[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
-            }
-        }
     }
 
     void VideoDenoise::YUVFusion(){ // 12.5ms ->
