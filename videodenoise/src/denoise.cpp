@@ -7,16 +7,6 @@
 // and/or sell copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
 // @Author:  xiezhongzhao
 // @Email:   2234309583@qq.com
 // @Data:    2023/11/27 14:41
@@ -72,6 +62,8 @@ namespace denoise{
         flow_op_small = cv::Mat(y_small_size, CV_32FC2);
         flow_op_small_displacement = cv::Mat(y_small_size, CV_32FC2);
         flow_op2_small_displacement = cv::Mat(uv_small_size, CV_32FC2);
+
+//        ypre_original = cv::Mat(y_size, CV_8UC1);
 
         denoised_y = cv::Mat(y_size, CV_8UC1);
         denoised_u = cv::Mat(uv_size, CV_8UC1);
@@ -137,19 +129,29 @@ namespace denoise{
         cv::resize(y_remap_small, y_remap, y_size, 0.5, 0.5, cv::INTER_NEAREST);
     }
 
-    void VideoDenoise::Blend(cv::Mat& pre, cv::Mat& cur, int multiple){ // 12ms->3ms ???
-        int pb = PB / multiple;  // 16
-        int pe = PE / multiple;  // 32
-        int wb = WB;  //  0.5
-        int we = WE;  //  1.0
+    void VideoDenoise::Fusion(cv::Mat& pre, cv::Mat& cur, int multiple){ // 12ms->3ms ???
+        float pb = PB / multiple;  // 16
+        float pe = PE / multiple;  // 32
+        float wb = WB;  //  0.5
+        float we = WE;  //  1.0
 
-        float ratio_weight1 = (we - wb) / (pe - pb);  // 0.5/16
-        float ratio_weight2 = pb * we - pe * wb; // 16 - 16
         cv::Mat diff;
         cv::absdiff(cur, pre, diff);
         const int height = diff.rows;
         const int width = diff.cols;
 
+//        // 定点化计算 8位
+//        int ratio_weight1 = (we-wb)/(pe-pb); //定点化
+//        int ratio_weight2 = (pb*we-pe*wb) * 128;
+//        int ratio[256], ratio_mi[256];
+//        for(int delta=0; delta<=255; ++delta){
+//            int weight = 0;
+//            if(delta <= )
+//        }
+
+        // 定点化计算 8位
+        float ratio_weight1 = (we - wb) / (pe - pb);  // 0.5/16
+        float ratio_weight2 = pb * we - pe * wb; // 16 - 16
         float ratio[256], ratio_mi[256];
         for(int delta=0; delta<=255; ++delta){
             float weight = 0.f;
@@ -160,7 +162,7 @@ namespace denoise{
             }else{
                 weight = ratio_weight1 * (static_cast<float>(delta) + ratio_weight2);
             }
-            ratio[delta] = weight;
+            ratio[delta] = weight;  // 定点化数据范围
             ratio_mi[delta] = 1.f - weight;
         }
 
@@ -172,7 +174,7 @@ namespace denoise{
         unsigned char* pCur = cur.data;
         unsigned char* pCurCopy = curCopy.data;
 
-#ifdef SSE   // 6.5 ms good !!!
+#ifdef SSE   // 8.5ms ~ 10ms
         for(int y=0; y<height; ++y){
             unsigned char* linePDiff = pDiff + y * width;
             unsigned char* linePPre = pPre + y * width;
@@ -298,14 +300,15 @@ namespace denoise{
         }
         curCopy.copyTo(cur);
 
-#elif ORIG  // 10~13ms -> 7~10ms
+#elif ORIG  // 11~15 ms
          for(int y=0; y<height; ++y){
             unsigned char* linePDiff = pDiff + y * width;
             unsigned char* linePPre = pPre + y * width;
             unsigned char* linePCur = pCur + y * width;
             for(int x=0; x<width; ++x){
                 int delta = linePDiff[x];
-                linePCur[x] = ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x];
+                linePCur[x] = uchar(ratio_mi[delta] * linePPre[x]
+                        + ratio[delta] * linePCur[x] + 0.5);
             }
          }
 #endif
@@ -315,49 +318,36 @@ namespace denoise{
         // fusion y of the original image -> ok !!!
         cv::Mat y_src;
         yuv[0].copyTo(y_src);
-        Blend(y_remap, yuv[0], 1); // fusion y (src size)
+        Fusion(y_remap, yuv[0], 1); // fusion y (src size)
         cv::Mat y_src_denoised;
-        cv::addWeighted(y_src, 0.33,
-                        yuv[0], 0.67, 0, y_src_denoised);
+        yuv[0].copyTo(y_src_denoised);
 
         // fusion y of the small image -> ok !!!
         cv::Mat y_small;
         yuv_small[0].copyTo(y_small);
-        Blend(y_remap_small, yuv_small[0], 2); // fusion y (small size)
-        Blend(u_remap_small, yuv_small[1], 4); // fusion u (small size)
-        Blend(v_remap_small, yuv_small[2], 4); // fusion v (small size)
-
-        cv::addWeighted(y_small, 0.33,
-                        yuv_small[0], 0.67, 0, yuv_small[0]);
+        Fusion(y_remap_small, yuv_small[0], 2); // fusion y (small size)
         cv::Mat y_small_resize_denoised;
         cv::resize(yuv_small[0], y_small_resize_denoised, y_size, 0.5, 0.5, cv::INTER_NEAREST);
-
         // fusion the two branches
         cv::addWeighted(y_small_resize_denoised, 0.5,
                         y_src_denoised, 0.5 , 0, denoised_y);
 
-        // fusion the current and previous denoised frame
-        cv::addWeighted(yuv_pre[0], 0.33,
-                        denoised_y, 0.67, 0, denoised_y);// fusion from two branches
+        // fusion the current and previous original frame
+        Fusion(yuv_pre[0], denoised_y, 1);
 
+        // fusion the uv_remap and uv frame
+        Fusion(u_remap_small, yuv_small[1], 4); // fusion u (small size)
+        Fusion(v_remap_small, yuv_small[2], 4); // fusion v (small size)
     }
 
     void VideoDenoise::FilterYUV(){
 
-//        cv::GaussianBlur(denoised_y, denoised_y, Size(3, 3), 0.6, 0.6);
+        //cv::GaussianBlur(denoised_y, denoised_y, Size(3, 3), 0.6, 0.6);
 
-        cv::GaussianBlur(yuv_small[1], denoised_u_small, Size(3, 3), 1, 1);
-        cv::GaussianBlur(yuv_small[2], denoised_v_small, Size(3, 3), 1, 1);
+        cv::GaussianBlur(yuv_small[1], denoised_u_small, Size(5, 5), 1, 1);
+        cv::GaussianBlur(yuv_small[2], denoised_v_small, Size(5, 5), 1, 1);
         cv::resize(denoised_u_small, denoised_u, uv_size, 0.5, 0.5, cv::INTER_AREA);
         cv::resize(denoised_v_small, denoised_v, uv_size, 0.5, 0.5, cv::INTER_AREA);
-
-        // fusion the previous(denoised) and current u
-        cv::addWeighted(yuv_pre[1], 0.33,
-                        denoised_u, 0.67, 0, denoised_u);// fusion from two branches
-
-        // fusion the previous(denoised) and current v
-        cv::addWeighted(yuv_pre[2], 0.33,
-                        denoised_v, 0.67, 0, denoised_v);// fusion from two branches
     }
 
     void VideoDenoise::DenoiseProcess(vector<cv::Mat> &yuv_pre,

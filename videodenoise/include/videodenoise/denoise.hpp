@@ -56,6 +56,9 @@ private:
 
     cv::Mat y_remap, u_remap, v_remap;
     cv::Mat y_remap_small, u_remap_small, v_remap_small;
+
+    cv::Mat ypre_original, upre_original, vpre_original;
+
     cv::Mat denoised_y, denoised_u, denoised_v;
     cv::Mat denoised_y_small, denoised_u_small, denoised_v_small;
 public:
@@ -69,7 +72,7 @@ public:
 
     void RemapYUV();
 
-    void Blend(cv::Mat& pre, cv::Mat& cur, int multiple);
+    void Fusion(cv::Mat& pre, cv::Mat& cur, int multiple);
 
     void YUVFusion();
 
