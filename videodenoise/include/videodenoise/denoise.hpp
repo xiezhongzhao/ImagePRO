@@ -61,6 +61,7 @@ private:
 
     cv::Mat denoised_y, denoised_u, denoised_v;
     cv::Mat denoised_y_small, denoised_u_small, denoised_v_small;
+
 public:
     VideoDenoise(int width, int height);
     ~VideoDenoise();

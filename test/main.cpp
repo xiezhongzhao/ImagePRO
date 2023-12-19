@@ -15,7 +15,7 @@ void denoiseTest(){
     string prefix = "E:/WorkSpace/CPlusPlus/ImagePRO/data/";
     string fileFolder = prefix + "data6/";
     string fileExtension = "*.yuv";
-    string saveVideoPath = prefix + "tcl_v2.1.avi";
+    string saveVideoPath = prefix + "tcl_v2.2.avi";
 
     // save the denoised video
     cv::VideoWriter writer;
@@ -35,7 +35,9 @@ void denoiseTest(){
     std::unique_ptr<denoise::VideoDenoise> video_denoise
             = std::make_unique<denoise::VideoDenoise>(WIDTH, HEIGHT);
     while(frameCount < v_filenames.size()){
+
         yuv = denoise::readYUV(fileFolder, v_filenames[frameCount++], WIDTH, HEIGHT);
+
         if(yuv_pre[0].empty()){
             yuv[0].copyTo(yuv_pre[0]);
             cv::GaussianBlur(yuv[1], yuv[1], Size(5, 5), 1, 1);
@@ -53,9 +55,9 @@ void denoiseTest(){
         //contrast::SECE(yuv[0]);
         //timer->stop();
 
-        // timer = std::make_unique<Timer::Timer>("denoise");
+        //timer = std::make_unique<Timer::Timer>("denoise");
         video_denoise->DenoiseProcess(yuv_pre, yuv); // 5ms
-        // timer->stop();
+        //timer->stop();
 
         cv::Mat denoisedY, denoisedU, denoisedV;
         video_denoise->GetDenoisedYUV(denoisedY, denoisedU, denoisedV);
@@ -68,14 +70,13 @@ void denoiseTest(){
         denoisedU.copyTo(yuv_pre[1]);
         denoisedV.copyTo(yuv_pre[2]);
 
-        // convert yuv into bgr`
+        // convert yuv into bgr
         Mat bgr = denoise::yuv2bgr(denoisedY, denoisedU, denoisedV);
         cv::imshow("bgr", bgr);
         cv::waitKey(1);
 
         // write the denoised video
         writer.write(bgr);
-
     }
     writer.release();
 }
