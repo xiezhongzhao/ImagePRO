@@ -1,9 +1,5 @@
 ﻿#include <videodenoise/VideoIO.hpp>
-#include <videodenoise/parallel.hpp>
-#include <videodenoise/DISOpticalFlowV2.hpp>
-#include <videodenoise/VariationalRefinementImplV2.hpp>
 #include <videodenoise/denoise.hpp>
-
 #include <contrast/secedct.hpp>
 #include <timer/timer.hpp>
 

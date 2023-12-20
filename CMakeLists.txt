@@ -5,7 +5,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 #add_definitions(-DORIG)
-add_definitions(-DSSE) # -DORIG -DSSE
+add_definitions(-DSIMD128) # -DORIG -DSSE
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -20,12 +20,6 @@ add_subdirectory(videodenoise)
 add_subdirectory(contrast)
 add_subdirectory(timer)
 add_subdirectory(test)
-
-
-
-
-
-
 
 
 

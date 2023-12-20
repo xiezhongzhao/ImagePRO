@@ -63,8 +63,6 @@ namespace denoise{
         flow_op_small_displacement = cv::Mat(y_small_size, CV_32FC2);
         flow_op2_small_displacement = cv::Mat(uv_small_size, CV_32FC2);
 
-//        ypre_original = cv::Mat(y_size, CV_8UC1);
-
         denoised_y = cv::Mat(y_size, CV_8UC1);
         denoised_u = cv::Mat(uv_size, CV_8UC1);
         denoised_v = cv::Mat(uv_size, CV_8UC1);
@@ -73,7 +71,7 @@ namespace denoise{
         denoised_u_small = cv::Mat(uv_small_size, CV_8UC1);
         denoised_v_small = cv::Mat(uv_small_size, CV_8UC1);
 
-        Dis =  cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
+        Dis =  cv::DISOpticalFlowV2::create(cv::DISOpticalFlowV2::PRESET_ULTRAFAST);
 
     }
 
@@ -166,7 +164,7 @@ namespace denoise{
         unsigned char* pCur = cur.data;
         unsigned char* pCurCopy = curCopy.data;
 
-#ifdef SSE   // 8.5ms ~ 10ms
+#ifdef SIMD128 // 8.5ms ~ 10ms
         cv::parallel_for_(cv::Range(0, height), [&](const cv::Range& range){
             for(int y=range.start; y<range.end; ++y){
                 unsigned char* linePDiff = pDiff + y * width;

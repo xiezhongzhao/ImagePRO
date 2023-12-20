@@ -26,6 +26,8 @@
 #define IMAGEPRO_DENOISE_HPP
 
 #include <videodenoise/common.hpp>
+#include <videodenoise/DISOpticalFlowV2.hpp>
+#include <videodenoise/VariationalRefinementImplV2.hpp>
 
 namespace denoise{
 
@@ -47,7 +49,7 @@ private:
     vector<cv::Mat> yuv_small_pre;
     vector<cv::Mat> yuv_small;
 
-    cv::Ptr<cv::DISOpticalFlow> Dis;
+    cv::Ptr<cv::DISOpticalFlowV2> Dis;
     std::unique_ptr<Timer::Timer> timer;
 
     cv::Mat flow_op, flow_op_small;

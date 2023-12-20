@@ -50,6 +50,7 @@
 #include <opencv2/video.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/utility.hpp>
+#include <opencv2/core/hal/intrin.hpp>
 
 #include <timer/timer.hpp>
 
@@ -57,7 +58,7 @@
 #define original
 #elif defined(ARM_NEON)
 #include <arm_neon.h>
-#elif defined(SSE)
+#elif defined(SIMD128)
 #include <xmmintrin.h>
 #include <immintrin.h>
 #include <emmintrin.h>
@@ -79,6 +80,8 @@ using std::strcmp;
 using std::move;
 
 using cv::Mat;
+using cv::Mat_;
+using cv::Range;
 using cv::Point2d;
 using cv::Point;
 using cv::Scalar;
