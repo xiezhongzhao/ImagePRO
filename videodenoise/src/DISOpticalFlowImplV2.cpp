@@ -1,4 +1,4 @@
-#include <videodenoise/DISOpticalFlowV2.hpp>
+#include <videodenoise/DISOpticalFlowImplV2.hpp>
 #include <videodenoise/VariationalRefinementImplV2.hpp>
 
 #define EPS 0.001F
@@ -8,7 +8,7 @@ namespace cv{
 
     DISOpticalFlowImplV2::DISOpticalFlowImplV2()
     {
-
+        is_first_frame = true;
         finest_scale = 2;
         patch_size = 8;
         patch_stride = 4;

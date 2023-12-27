@@ -26,7 +26,7 @@
 #define IMAGEPRO_DENOISE_HPP
 
 #include <videodenoise/common.hpp>
-#include <videodenoise/DISOpticalFlowV2.hpp>
+#include <videodenoise/DISOpticalFlowImplV2.hpp>
 #include <videodenoise/VariationalRefinementImplV2.hpp>
 
 namespace denoise{
