@@ -49,7 +49,7 @@ private:
     vector<cv::Mat> yuv_small_pre;
     vector<cv::Mat> yuv_small;
 
-    cv::Ptr<cv::DISOpticalFlowV2> Dis;
+    cv::Ptr<cv::DISOpticalFlowImplV2> Dis;
     std::unique_ptr<Timer::Timer> timer;
 
     cv::Mat flow_op, flow_op_small;
@@ -69,7 +69,7 @@ public:
     ~VideoDenoise();
 
     // relative motion
-    void EstimateMotion(vector<cv::Mat>& yuv_pre, vector<cv::Mat>& yuv_cur);
+    void EstimateMotion(vector<cv::Mat>& yuv_pre, vector<cv::Mat>& yuv_cur, bool is_first_frame);
 
     void GetYUVAbsoluteMotion();
 

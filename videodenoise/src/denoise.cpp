@@ -48,16 +48,16 @@ namespace denoise{
         yuv_small[2] = cv::Mat(uv_small_size, CV_8UC1);
 
         y_remap = cv::Mat(y_size, CV_8UC1);
-        u_remap = cv::Mat(uv_size, CV_8UC1);
-        v_remap = cv::Mat(uv_size, CV_8UC1);
+//        u_remap = cv::Mat(uv_size, CV_8UC1);
+//        v_remap = cv::Mat(uv_size, CV_8UC1);
 
         y_remap_small =  cv::Mat(y_small_size, CV_8UC1);
         u_remap_small =  cv::Mat(uv_small_size, CV_8UC1);
         v_remap_small =  cv::Mat(uv_small_size, CV_8UC1);
 
-        flow_op = cv::Mat(y_size, CV_32FC2); // Δ
-        flow_op_displacement = cv::Mat(y_size, CV_32FC2); // (x+Δx, y+Δy)
-        flow_op2_displacement = cv::Mat(uv_size, CV_32FC2);
+//        flow_op = cv::Mat(y_size, CV_32FC2); // Δ
+//        flow_op_displacement = cv::Mat(y_size, CV_32FC2); // (x+Δx, y+Δy)
+//        flow_op2_displacement = cv::Mat(uv_size, CV_32FC2);
 
         flow_op_small = cv::Mat(y_small_size, CV_32FC2);
         flow_op_small_displacement = cv::Mat(y_small_size, CV_32FC2);
@@ -67,17 +67,17 @@ namespace denoise{
         denoised_u = cv::Mat(uv_size, CV_8UC1);
         denoised_v = cv::Mat(uv_size, CV_8UC1);
 
-        denoised_y_small = cv::Mat(y_small_size, CV_8UC1);
+//        denoised_y_small = cv::Mat(y_small_size, CV_8UC1);
         denoised_u_small = cv::Mat(uv_small_size, CV_8UC1);
         denoised_v_small = cv::Mat(uv_small_size, CV_8UC1);
 
-        Dis =  cv::DISOpticalFlowV2::create(cv::DISOpticalFlowV2::PRESET_ULTRAFAST);
+        Dis =  cv::DISOpticalFlowImplV2::create(cv::DISOpticalFlowImplV2::PRESET_ULTRAFAST);
 
     }
 
     VideoDenoise::~VideoDenoise() = default;
 
-    void VideoDenoise::EstimateMotion(vector<cv::Mat> &yuv_pre_, vector<cv::Mat> &yuv_cur_) {
+    void VideoDenoise::EstimateMotion(vector<cv::Mat> &yuv_pre_, vector<cv::Mat> &yuv_cur_, bool is_first_frame) {
 
         yuv_pre = yuv_pre_;
         yuv = yuv_cur_;
@@ -290,7 +290,7 @@ namespace denoise{
 
     void VideoDenoise::FilterYUV(){
 
-        //cv::GaussianBlur(denoised_y, denoised_y, Size(3, 3), 0.6, 0.6);
+//        cv::GaussianBlur(denoised_y, denoised_y, Size(3, 3), 0.6, 0.6);
 
         cv::GaussianBlur(yuv_small[1], denoised_u_small, Size(5, 5), 1, 1);
         cv::GaussianBlur(yuv_small[2], denoised_v_small, Size(5, 5), 1, 1);
@@ -307,7 +307,7 @@ namespace denoise{
         //FilterYUV();
 
         timer = std::make_unique<Timer::Timer>("EstimateMotion");
-        EstimateMotion(yuv_pre, yuv);
+        EstimateMotion(yuv_pre, yuv, true);
         timer->stop();
 
         timer = std::make_unique<Timer::Timer>("GetYUVAbsoluteMotion");
