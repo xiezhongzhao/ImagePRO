@@ -51,9 +51,9 @@ void denoiseTest(){
         //contrast::SECE(yuv[0]);
         //timer->stop();
 
-        //timer = std::make_unique<Timer::Timer>("denoise");
-        video_denoise->DenoiseProcess(yuv_pre, yuv); // 5ms
-        //timer->stop();
+        timer = std::make_unique<Timer::Timer>("denoise");
+        video_denoise->DenoiseProcess(yuv_pre, yuv); // 12 ms
+        timer->stop();
 
         cv::Mat denoisedY, denoisedU, denoisedV;
         video_denoise->GetDenoisedYUV(denoisedY, denoisedU, denoisedV);

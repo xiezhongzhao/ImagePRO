@@ -77,7 +77,7 @@ namespace denoise{
 
     VideoDenoise::~VideoDenoise() = default;
 
-    void VideoDenoise::EstimateMotion(vector<cv::Mat> &yuv_pre_, vector<cv::Mat> &yuv_cur_, bool is_first_frame) {
+    void VideoDenoise::EstimateMotion(vector<cv::Mat> &yuv_pre_, vector<cv::Mat> &yuv_cur_) {
 
         yuv_pre = yuv_pre_;
         yuv = yuv_cur_;
@@ -164,7 +164,7 @@ namespace denoise{
         unsigned char* pCur = cur.data;
         unsigned char* pCurCopy = curCopy.data;
 
-#ifdef SIMD128 // 8.5ms ~ 10ms
+#ifdef SIMD128 // 6ms~8ms
         cv::parallel_for_(cv::Range(0, height), [&](const cv::Range& range){
             for(int y=range.start; y<range.end; ++y){
                 unsigned char* linePDiff = pDiff + y * width;
@@ -247,7 +247,8 @@ namespace denoise{
                 unsigned char* linePCur = pCur + y * width;
                 int x;
                 for(x=0; x-4<width; x+=4){
-                    int delta1 = linePDiff[x], delta2 = linePDiff[x+1], delta3 = linePDiff[x+2], delta4 = linePDiff[x+3];
+                    int delta1 = linePDiff[x], delta2 = linePDiff[x+1];
+                    int delta3 = linePDiff[x+2], delta4 = linePDiff[x+3];
                     linePCur[x] = (ratio_mi[delta1] * linePPre[x] + ratio[delta1] * linePCur[x]) >> 8;
                     linePCur[x+1] = (ratio_mi[delta2] * linePPre[x+1] + ratio[delta2] * linePCur[x+1]) >> 8;
                     linePCur[x+2] = (ratio_mi[delta3] * linePPre[x+2] + ratio[delta3] * linePCur[x+2]) >> 8;
@@ -285,7 +286,7 @@ namespace denoise{
 
         // fusion the uv_remap and uv frame
         Fusion(u_remap_small, yuv_small[1], 4); // fusionu 0.15ms~0.25ms
-        Fusion(v_remap_small, yuv_small[2], 4); // fusionv
+        Fusion(v_remap_small, yuv_small[2], 4); // fusionv 0.15ms~0.25ms
     }
 
     void VideoDenoise::FilterYUV(){
@@ -300,31 +301,31 @@ namespace denoise{
 
     void VideoDenoise::DenoiseProcess(vector<cv::Mat> &yuv_pre,
                                       vector<cv::Mat> &yuv) {
-        //EstimateMotion(yuv_pre, yuv);
-        //GetYUVAbsoluteMotion();
-        //RemapYUV();
-        //YUVFusion();
-        //FilterYUV();
-
-        timer = std::make_unique<Timer::Timer>("EstimateMotion");
-        EstimateMotion(yuv_pre, yuv, true);
-        timer->stop();
-
-        timer = std::make_unique<Timer::Timer>("GetYUVAbsoluteMotion");
+        EstimateMotion(yuv_pre, yuv);
         GetYUVAbsoluteMotion();
-        timer->stop();
-
-        timer = std::make_unique<Timer::Timer>("RemapYUV");
         RemapYUV();
-        timer->stop();
-
-        timer = std::make_unique<Timer::Timer>("YUVFusion");
         YUVFusion();
-        timer->stop();
-
-        timer = std::make_unique<Timer::Timer>("FilterYUV");
         FilterYUV();
-        timer->stop();
+
+//        timer = std::make_unique<Timer::Timer>("EstimateMotion");
+//        EstimateMotion(yuv_pre, yuv);
+//        timer->stop();
+//
+//        timer = std::make_unique<Timer::Timer>("GetYUVAbsoluteMotion");
+//        GetYUVAbsoluteMotion();
+//        timer->stop();
+//
+//        timer = std::make_unique<Timer::Timer>("RemapYUV");
+//        RemapYUV();
+//        timer->stop();
+//
+//        timer = std::make_unique<Timer::Timer>("YUVFusion");
+//        YUVFusion();
+//        timer->stop();
+//
+//        timer = std::make_unique<Timer::Timer>("FilterYUV");
+//        FilterYUV();
+//        timer->stop();
     }
 
     void VideoDenoise::GetDenoisedYUV(cv::Mat& y,

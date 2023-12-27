@@ -69,7 +69,7 @@ public:
     ~VideoDenoise();
 
     // relative motion
-    void EstimateMotion(vector<cv::Mat>& yuv_pre, vector<cv::Mat>& yuv_cur, bool is_first_frame);
+    void EstimateMotion(vector<cv::Mat>& yuv_pre, vector<cv::Mat>& yuv_cur);
 
     void GetYUVAbsoluteMotion();
 

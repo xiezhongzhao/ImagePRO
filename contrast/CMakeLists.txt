@@ -8,4 +8,3 @@ target_include_directories(contrast PUBLIC include)
 
 
 
-
