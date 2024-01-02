@@ -11,7 +11,7 @@ void denoiseTest(){
     string prefix = "E:/WorkSpace/CPlusPlus/ImagePRO/data/";
     string fileFolder = prefix + "data6/";
     string fileExtension = "*.yuv";
-    string saveVideoPath = prefix + "tcl_v2.2.avi";
+    string saveVideoPath = prefix + "tcl_v2.3.avi";
 
     // save the denoised video
     cv::VideoWriter writer;
@@ -51,9 +51,9 @@ void denoiseTest(){
         //contrast::SECE(yuv[0]);
         //timer->stop();
 
-        timer = std::make_unique<Timer::Timer>("denoise");
+        //timer = std::make_unique<Timer::Timer>("denoise");
         video_denoise->DenoiseProcess(yuv_pre, yuv); // 12 ms
-        timer->stop();
+        //timer->stop();
 
         cv::Mat denoisedY, denoisedU, denoisedV;
         video_denoise->GetDenoisedYUV(denoisedY, denoisedU, denoisedV);

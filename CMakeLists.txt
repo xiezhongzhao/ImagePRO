@@ -5,7 +5,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 #add_definitions(-DCV_SIMD128)
-add_definitions(-DORIG) # -DORIG -DSSE
+add_definitions(-DSIMD128) # -DORIG -DSIMD128
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

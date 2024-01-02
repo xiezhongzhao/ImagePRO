@@ -173,6 +173,7 @@ namespace denoise{
                 unsigned char* linePCurCopy = pCurCopy + y * width;
                 int x = 0;
                 for(x=0; x<width-16; x+=16) {
+
                     __m128i weight1 = _mm_set_epi16(
                             ratio[linePDiff[x+7]], ratio[linePDiff[x+6]], ratio[linePDiff[x+5]], ratio[linePDiff[x+4]],
                             ratio[linePDiff[x+3]], ratio[linePDiff[x+2]], ratio[linePDiff[x+1]], ratio[linePDiff[x]]);
@@ -235,7 +236,6 @@ namespace denoise{
                     linePCurCopy[x] = (ratio_mi[delta] * linePPre[x] + ratio[delta] * linePCur[x]) >> 8;
                 }
             }
-
         });
         curCopy.copyTo(cur);
 
@@ -301,31 +301,31 @@ namespace denoise{
 
     void VideoDenoise::DenoiseProcess(vector<cv::Mat> &yuv_pre,
                                       vector<cv::Mat> &yuv) {
-        EstimateMotion(yuv_pre, yuv);
-        GetYUVAbsoluteMotion();
-        RemapYUV();
-        YUVFusion();
-        FilterYUV();
+        //EstimateMotion(yuv_pre, yuv);
+        //GetYUVAbsoluteMotion();
+        //RemapYUV();
+        //YUVFusion();
+        //FilterYUV();
 
-//        timer = std::make_unique<Timer::Timer>("EstimateMotion");
-//        EstimateMotion(yuv_pre, yuv);
-//        timer->stop();
-//
-//        timer = std::make_unique<Timer::Timer>("GetYUVAbsoluteMotion");
-//        GetYUVAbsoluteMotion();
-//        timer->stop();
-//
-//        timer = std::make_unique<Timer::Timer>("RemapYUV");
-//        RemapYUV();
-//        timer->stop();
-//
-//        timer = std::make_unique<Timer::Timer>("YUVFusion");
-//        YUVFusion();
-//        timer->stop();
-//
-//        timer = std::make_unique<Timer::Timer>("FilterYUV");
-//        FilterYUV();
-//        timer->stop();
+        timer = std::make_unique<Timer::Timer>("EstimateMotion");
+        EstimateMotion(yuv_pre, yuv);
+        timer->stop();
+
+        timer = std::make_unique<Timer::Timer>("GetYUVAbsoluteMotion");
+        GetYUVAbsoluteMotion();
+        timer->stop();
+
+        timer = std::make_unique<Timer::Timer>("RemapYUV");
+        RemapYUV();
+        timer->stop();
+
+        timer = std::make_unique<Timer::Timer>("YUVFusion");
+        YUVFusion();
+        timer->stop();
+
+        timer = std::make_unique<Timer::Timer>("FilterYUV");
+        FilterYUV();
+        timer->stop();
     }
 
     void VideoDenoise::GetDenoisedYUV(cv::Mat& y,
